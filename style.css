@@ -41,3 +41,23 @@
   .hero-product, .hero-glow { transform: none; }
   .site-header::after { display: none; }
 }
+
+/* Separate layers keep the crossfade independent of the scroll reveal. */
+.achievement-type { transform: none; }
+.achievement-words { display: grid; place-items: center; animation: achievement-jitter .16s linear infinite; animation-play-state: paused; }
+.achievement-word { --word-tilt: -5deg; grid-area: 1 / 1; white-space: nowrap; opacity: 0; transform: translateY(10px) rotate(var(--word-tilt)) scale(.98); transition: opacity .65s ease, transform .65s ease; }
+.achievement-word:nth-child(even) { --word-tilt: 5deg; }
+.achievement-word.is-active { opacity: 1; transform: translateY(0) rotate(var(--word-tilt)) scale(1); }
+.achievement-type.is-playing .achievement-words { animation-play-state: running; }
+.achievement-motion-toggle { display: block; margin: -25px auto 30px; padding: 10px 16px; min-height: 44px; border: 1px solid var(--line); border-radius: 30px; background: transparent; color: var(--muted); font-size: 11px; cursor: pointer; }
+.achievement-motion-toggle[hidden] { display: none; }
+@keyframes achievement-jitter {
+  0%, 100% { transform: translate(-1px, 0) rotate(-.3deg); }
+  25% { transform: translate(1px, -1.5px) rotate(.3deg); }
+  50% { transform: translate(-1.5px, 1px) rotate(-.2deg); }
+  75% { transform: translate(1.5px, .5px) rotate(.2deg); }
+}
+@media(prefers-reduced-motion: reduce) {
+  .achievement-words { animation: none; }
+  .achievement-word { transition: none; transform: none; }
+}
