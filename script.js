@@ -55,6 +55,7 @@ for (const button of answers) {
     const correct = button.dataset.answer === 'true';
     button.classList.add(correct ? 'correct' : 'wrong');
     button.setAttribute('aria-pressed', 'true');
+    if (correct) openQuizCelebration(button);
     feedback.textContent = correct ? '正解！ focus = 集中する。ひとつ、思い出せました。' : 'もう一度。「集中する」に合う単語を選んでみましょう。';
   });
 }
@@ -99,3 +100,74 @@ if (achievement && motionToggle && celebrationWords.length > 1) {
   reducedMotion.addEventListener('change', updateCelebration);
   updateCelebration();
 }
+
+// Standalone, browser-only sample of the app's completion celebration.
+const quizCelebration = document.querySelector('.quiz-celebration');
+const praise = [
+  ['LETS GOOOOO!', '大きな一勝だ！ 胸を張っていいよ！'],
+  ['Boom!', '見事なやり遂げっぷり！ 完璧だよ、相棒。'],
+  ['NO WAY!', '本当にやり遂げたね！ その頑張り、すごすぎる！'],
+  ['Nailed it!', 'バッチリ決めたね！ まさに伝説。'],
+  ['Insane work!', '一気にレベルアップしたね！']
+];
+let lastPraise = -1;
+let celebrationTimer;
+let confettiTimer;
+let celebrationTrigger;
+let previousOverflow = '';
+function finishQuizCelebration() {
+  clearTimeout(celebrationTimer);
+  if (!quizCelebration.open) return;
+  quizCelebration.classList.add('show-result');
+  quizCelebration.querySelector('.celebration-skip').hidden = true;
+  const particles = quizCelebration.querySelector('.celebration-confetti');
+  particles.replaceChildren();
+  if (!reducedMotion.matches) {
+    for (let i = 0; i < 80; i++) {
+      const piece = document.createElement('i');
+      const left = i % 2 === 0;
+      piece.style.cssText = `left:${left ? 0 : 100}%;--dx:${(left ? 1 : -1) * (12 + Math.random() * 85)}vw;--dy:-${45 + Math.random() * 65}vh;--spin:${Math.random() * 1080}deg;--delay:${Math.random() * .5}s;background:hsl(${i * 47 % 360} 90% 65%)`;
+      particles.append(piece);
+    }
+    clearTimeout(confettiTimer);
+    confettiTimer = setTimeout(() => particles.replaceChildren(), 4000);
+  }
+}
+function openQuizCelebration(trigger) {
+  if (!quizCelebration || quizCelebration.open) return;
+  celebrationTrigger = trigger;
+  const next = (lastPraise + 1 + Math.floor(Math.random() * (praise.length - 1))) % praise.length;
+  lastPraise = next;
+  const [title, copy] = praise[next];
+  quizCelebration.querySelector('#celebration-title').textContent = title;
+  quizCelebration.querySelector('#celebration-copy').textContent = copy;
+  const rush = quizCelebration.querySelector('.celebration-rush');
+  rush.replaceChildren();
+  for (let i = 0; i < 8; i++) {
+    const line = document.createElement('span');
+    line.textContent = title;
+    line.style.setProperty('--row', i);
+    rush.append(line);
+  }
+  quizCelebration.classList.remove('show-result');
+  quizCelebration.querySelector('.celebration-skip').hidden = false;
+  previousOverflow = document.body.style.overflow;
+  document.body.style.overflow = 'hidden';
+  quizCelebration.showModal();
+  quizCelebration.querySelector('.celebration-close').focus();
+  if (reducedMotion.matches) finishQuizCelebration();
+  else celebrationTimer = setTimeout(finishQuizCelebration, 1800);
+}
+quizCelebration.querySelector('.celebration-close').addEventListener('click', () => quizCelebration.close());
+quizCelebration.querySelector('.celebration-done').addEventListener('click', () => quizCelebration.close());
+quizCelebration.querySelector('.celebration-skip').addEventListener('click', finishQuizCelebration);
+quizCelebration.addEventListener('close', () => {
+  clearTimeout(celebrationTimer);
+  clearTimeout(confettiTimer);
+  quizCelebration.querySelector('.celebration-confetti').replaceChildren();
+  document.body.style.overflow = previousOverflow;
+  celebrationTrigger?.focus({ preventScroll: true });
+});
+reducedMotion.addEventListener('change', () => {
+  if (reducedMotion.matches && quizCelebration.open) finishQuizCelebration();
+});

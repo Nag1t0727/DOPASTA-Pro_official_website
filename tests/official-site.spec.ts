@@ -14,6 +14,17 @@ for (const width of [320, 390, 1440]) {
     await expect(page.locator('#quiz-feedback')).toContainText('もう一度');
     await page.locator('[data-answer="true"]').click();
     await expect(page.locator('#quiz-feedback')).toContainText('正解！');
+    await expect(page.locator('.quiz-celebration')).toBeVisible();
+    await expect(page.locator('.quiz-celebration')).toHaveClass(/show-result/);
+    await expect(page.locator('.celebration-confetti i')).toHaveCount(80);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.quiz-celebration')).not.toBeVisible();
+    await expect(page.locator('[data-answer="true"]')).toBeFocused();
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.locator('[data-answer="true"]').click();
+    await expect(page.locator('.celebration-confetti i')).toHaveCount(0);
+    await page.locator('.celebration-done').click();
+    await expect(page.locator('.sound-steps article')).toHaveCount(3);
     await page.getByText('学習データはどこに保存されますか？', { exact: true }).click();
     await expect(page.locator('details[open]')).toContainText('端末間の同期は未対応');
     const target = page.locator('#connect .feature-copy');
