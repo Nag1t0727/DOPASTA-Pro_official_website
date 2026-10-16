@@ -81,3 +81,21 @@
 .sound-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;margin-top:44px}.sound-steps article,.score-note{padding:28px;border:1px solid var(--line);border-radius:20px;background:#ffffff04}.sound-number{display:block;color:#b48aff;font-size:11px;letter-spacing:.13em;margin-bottom:24px}.sound-steps p,.score-note p{color:var(--muted);font-size:14px;line-height:2}.sound-steps h3{font-size:20px}.sound-status{display:flex;flex-wrap:wrap;gap:12px;font-size:11px}.sound-status span:nth-child(1){color:#70e3a3}.sound-status span:nth-child(2){color:#f7d776}.sound-status span:nth-child(3){color:#ff8c93}.score-note{margin-top:20px}.score-note p:last-child{margin-bottom:0}.fine-print a{display:block;text-decoration:underline;text-underline-offset:4px;margin-top:10px}
 @media(max-width:760px){.sound-steps{grid-template-columns:1fr}.quiz-celebration{padding:18px}.celebration-result .fine-print{max-width:270px;line-height:1.8}}
 @media(prefers-reduced-motion:reduce){.celebration-rush,.celebration-confetti{display:none}.quiz-celebration.show-result .celebration-result{animation:none}}
+
+/* Larger reading typography, preserving the existing display headings. */
+.hero-copy,.body-copy{font-size:clamp(18px,1.65vw,22px);line-height:1.95}
+h3,.sound-steps h3{font-size:clamp(23px,2.1vw,28px);line-height:1.5}
+.steps p,.sound-steps p,.score-note p,.faq details p{font-size:clamp(18px,1.5vw,20px);line-height:1.95}
+.check-list{font-size:clamp(17px,1.4vw,19px);line-height:1.9}
+.check-list li+li{margin-top:12px}
+.eyebrow,.visual-label,.sound-number{font-size:14px;line-height:1.8}
+.feature-index strong{font-size:22px;line-height:1.5}
+.feature-index a>span:first-child{font-size:13px}
+.faq summary{font-size:clamp(19px,1.8vw,24px);line-height:1.6;padding-right:28px}
+.fine-print,.feedback,.focus-visual>p,.team-visual>p{font-size:16px;line-height:1.9}
+.sample-tag,.sound-status,.team-bars small,.timeline-label{font-size:13px;line-height:1.6}
+.quiz-options button{font-size:19px}.quiz-options button span{font-size:12px}
+.button,.text-link,.achievement-motion-toggle{font-size:16px}
+.feature-copy,.faq-list,.sound-steps article,.steps li{min-width:0;overflow-wrap:anywhere}
+@media(max-width:900px){.feature{gap:36px}.sound-steps{grid-template-columns:1fr}.steps{gap:24px}}
+@media(max-width:600px){.hero-actions{flex-wrap:wrap;gap:22px}.feature-index strong{font-size:21px}.sound-steps article,.score-note{padding:24px}.check-list{font-size:17px}.visual-label{font-size:13px}.sample-tag{margin-left:0;margin-top:8px;display:block}}
