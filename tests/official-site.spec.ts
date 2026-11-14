@@ -26,7 +26,7 @@ for (const width of [320, 390, 1440]) {
     await page.locator('.celebration-done').click();
     await expect(page.locator('.sound-steps article')).toHaveCount(3);
     await page.getByText('学習データはどこに保存されますか？', { exact: true }).click();
-    await expect(page.locator('details[open]')).toContainText('端末間の同期は未対応');
+    await expect(page.locator('details[open]')).toContainText('サーバーに保存');
     const target = page.locator('#connect .feature-copy');
     await target.scrollIntoViewIfNeeded();
     await expect(target).toHaveCSS('opacity', '1');
@@ -43,3 +43,45 @@ test('official content is accessible without JavaScript', async ({ browser }) =>
   await expect(page.locator('#features .statement')).toHaveCSS('opacity', '1');
   await context.close();
 });
+
+
+for (const width of [390, 1440]) {
+  test(`scroll brand choreography and navigation at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/');
+    await page.addStyleTag({ content: 'html{scroll-behavior:auto!important}' });
+    const nav = await page.locator('.site-header nav').boundingBox();
+    expect(nav).not.toBeNull();
+    expect(Math.abs(nav!.x + nav!.width / 2 - width / 2)).toBeLessThan(2);
+    const seek = async (progress: number) => {
+      await page.evaluate(p => {
+        const story = document.querySelector('.brand-story') as HTMLElement;
+        const stage = document.querySelector('.brand-stage') as HTMLElement;
+        window.scrollTo(0, story.getBoundingClientRect().top + scrollY + (story.offsetHeight - stage.offsetHeight) * p);
+      }, progress);
+      await expect.poll(() => page.locator('.site-header').getAttribute('class')).toContain('is-collapsed');
+      await page.waitForTimeout(80);
+    };
+    await seek(.35);
+    const symbol = await page.locator('.brand-symbol').boundingBox();
+    expect(symbol!.width).toBeGreaterThan(0);
+    await expect(page.locator('.brand-letter-fill').last()).toHaveCSS('opacity', '0');
+    await seek(.97);
+    await expect(page.locator('.brand-letter-fill').last()).toHaveCSS('opacity', '1');
+    expect(await page.locator('.site-header').evaluate(e => e.getBoundingClientRect().bottom)).toBeLessThan(0);
+    await expect(page.locator('.header-accent')).toHaveCSS('height', '4px');
+    await seek(.68);
+    const letter = page.locator('.brand-letter').nth(5);
+    const midway = await letter.getAttribute('style');
+    await seek(.3);
+    await seek(.68);
+    expect(await letter.getAttribute('style')).toBe(midway);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await expect(page.locator('.brand-letter-fill').last()).toHaveCSS('opacity', '1');
+    await page.evaluate(() => scrollTo(0, 0));
+    await expect(page.locator('.site-header')).not.toHaveClass(/is-collapsed/);
+    await page.locator('.site-header nav a[href="#faq"]').click();
+    await expect.poll(() => page.locator('#faq').evaluate(e => Math.abs(e.getBoundingClientRect().top))).toBeLessThan(160);
+  });
+}
