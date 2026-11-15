@@ -1,98 +1,121 @@
 'use strict';
-// Progress follows viewport position; content stays visible when JavaScript is unavailable.
+// Cache layout between actual size/content changes; scroll frames only read the scroll offset.
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+const lightweightMotion = window.matchMedia('(max-width:760px), (pointer:coarse)');
 const reveals = [...document.querySelectorAll('.reveal')];
 const hero = document.querySelector('.hero');
 const header = document.querySelector('.site-header');
-let frame = 0;
 const brandStory = document.querySelector('.brand-story');
 const brandStage = document.querySelector('.brand-stage');
+const brandSymbol = document.querySelector('.brand-symbol');
+const brandAura = document.querySelector('.brand-aura');
+const brandCue = document.querySelector('.brand-scroll-cue');
 const brandLetters = [...document.querySelectorAll('.brand-letter')];
 const clamp = (value, min = 0, max = 1) => Math.max(min, Math.min(max, value));
 const ease = value => value * value * (3 - 2 * value);
-let storyTop = 0;
-let storyTravel = 1;
-let stageWidth = 1;
-function measureBrandStory() {
-  if (!brandStory || !brandStage) return;
-  storyTop = layoutTop(brandStory);
-  storyTravel = Math.max(1, brandStory.offsetHeight - brandStage.offsetHeight);
-  stageWidth = brandStage.clientWidth;
+const styleValues = new WeakMap();
+function style(element, property, value) {
+  if (!element) return;
+  let previous = styleValues.get(element);
+  if (!previous) { previous = new Map(); styleValues.set(element, previous); }
+  if (previous.get(property) === value) return;
+  previous.set(property, value); element.style.setProperty(property, value);
 }
-function paintBrandStory(scroll, motion) {
-  if (!brandStory || !brandStage) return;
-  const progress = motion ? clamp((scroll - storyTop) / storyTravel) : 1;
-  // Pure scroll-derived values: stopping or reversing the gesture preserves the exact frame.
-  const entrance = ease(clamp(progress / .22));
-  const move = ease(clamp((progress - .24) / .26));
-  const startSize = Math.min(360, stageWidth * .58);
-  const endSize = stageWidth * .21;
-  brandStage.style.setProperty('--symbol-x', `${stageWidth * (.5 - .36 * move)}px`);
-  brandStage.style.setProperty('--symbol-size', `${startSize}px`);
-  brandStage.style.setProperty('--symbol-scale', String((.68 + entrance * .32) * (1 - move * (1 - endSize / startSize))));
-  brandStage.style.setProperty('--symbol-y', `${(1 - entrance) * 70}px`);
-  brandStage.style.setProperty('--symbol-opacity', String(entrance));
-  brandStage.style.setProperty('--symbol-blur', `${(1 - entrance) * 16}px`);
-  brandStage.style.setProperty('--aura-opacity', String(entrance * (1 - move * .65) * .7));
-  brandStage.style.setProperty('--cue-opacity', String(1 - clamp(progress / .18)));
-  brandStage.style.setProperty('--finish', String(ease(clamp((progress - .85) / .12))));
-  brandLetters.forEach((letter, i) => {
-    const draw = clamp((progress - .47 - i * .032) / .17);
-    const fill = ease(clamp((draw - .48) / .52));
-    letter.style.setProperty('--letter-dash', String(900 * (1 - draw)));
-    letter.style.setProperty('--letter-stroke', String(clamp(draw * 5) * (1 - fill)));
-    letter.style.setProperty('--letter-fill', String(fill));
-    letter.style.setProperty('--letter-y', `${(1 - ease(draw)) * 12}px`);
-  });
-}
-// Static final composition is the safe default when scripting or motion is unavailable.
-brandStory?.classList.add('has-scroll-motion');
-// Layout coordinates exclude animated transforms, avoiding feedback/jitter while scrolling.
+let frame = 0, layoutDirty = true, viewportHeight = 1, scrollRange = 1;
+let storyTop = 0, storyTravel = 1, stageWidth = 1, lastStoryProgress = null;
+let revealLayout = [];
+const letterDraws = brandLetters.map(() => null);
+// offsetTop excludes animated transforms, so reversing a scroll returns the same frame.
 function layoutTop(element) {
   let top = 0;
   for (let node = element; node; node = node.offsetParent) top += node.offsetTop;
   return top;
 }
+function measureLayout() {
+  viewportHeight = window.innerHeight;
+  scrollRange = Math.max(0, document.documentElement.scrollHeight - viewportHeight);
+  // Batch every geometry/style read before making any animation writes.
+  revealLayout = reveals.map(element => {
+    const anchor = getComputedStyle(element).position === 'sticky' ? element.parentElement : element;
+    return { element, top: layoutTop(anchor), delay: element.matches('.feature > :last-child') ? 45 : 0,
+      progress: null, enabled: element.classList.contains('scroll-reveal'), active: element.classList.contains('is-revealing') };
+  });
+  if (brandStory && brandStage) {
+    storyTop = layoutTop(brandStory);
+    storyTravel = Math.max(1, brandStory.offsetHeight - brandStage.offsetHeight);
+    stageWidth = brandStage.clientWidth;
+  }
+  lastStoryProgress = null;
+  layoutDirty = false;
+}
+function paintBrandStory(scroll, motion, lightweight) {
+  if (!brandStory || !brandStage) return;
+  const progress = motion ? Math.round(clamp((scroll - storyTop) / storyTravel) * 100000) / 100000 : 1;
+  if (progress === lastStoryProgress) return;
+  lastStoryProgress = progress;
+  brandStory.classList.toggle('is-brand-active', motion && progress > 0 && progress < 1);
+  const entrance = ease(clamp(progress / .22));
+  const move = ease(clamp((progress - .24) / .26));
+  const startSize = Math.min(360, stageWidth * .58);
+  const endSize = stageWidth * .21;
+  // The image's left/width stay fixed during scrolling; only its composited transform moves.
+  style(brandSymbol, '--symbol-size', `${startSize}px`);
+  style(brandSymbol, '--symbol-shift', `${(-stageWidth * .36 * move).toFixed(3)}px`);
+  style(brandSymbol, '--symbol-scale', String((.68 + entrance * .32) * (1 - move * (1 - endSize / startSize))));
+  style(brandSymbol, '--symbol-y', `${((1 - entrance) * 70).toFixed(3)}px`);
+  style(brandSymbol, '--symbol-opacity', String(entrance));
+  style(brandSymbol, '--symbol-blur', lightweight ? '0px' : `${((1 - entrance) * 16).toFixed(3)}px`);
+  style(brandAura, 'opacity', String(entrance * (1 - move * .65) * .7));
+  style(brandCue, 'opacity', String(1 - clamp(progress / .18)));
+  brandLetters.forEach((letter, i) => {
+    const draw = clamp((progress - .47 - i * .032) / .17);
+    if (letterDraws[i] === draw) return;
+    letterDraws[i] = draw;
+    const fill = ease(clamp((draw - .48) / .52));
+    style(letter, '--letter-dash', String(900 * (1 - draw)));
+    style(letter, '--letter-stroke', String(clamp(draw * 5) * (1 - fill)));
+    style(letter, '--letter-fill', String(fill));
+    style(letter, '--letter-y', `${(1 - ease(draw)) * 12}px`);
+  });
+}
+// JavaScript-free and reduced-motion views retain the finished brand composition.
+brandStory?.classList.add('has-scroll-motion');
 function paintReveals() {
   frame = 0;
-  const height = window.innerHeight;
-  const scroll = window.scrollY;
-  const motion = !reducedMotion.matches;
-  for (const element of reveals) {
-    if (!motion) {
-      element.classList.remove('scroll-reveal');
-      continue;
-    }
-    // Sticky visuals use the section entrance as their stable scroll anchor.
-    const sticky = getComputedStyle(element).position === 'sticky';
-    const top = layoutTop(sticky ? element.parentElement : element) - scroll;
-    const delay = element.matches('.feature > :last-child') ? 45 : 0;
-    const progress = Math.max(0, Math.min(1, (height * 0.96 - top - delay) / (height * 0.25)));
-    element.classList.add('scroll-reveal');
-    element.style.setProperty('--reveal-opacity', String(progress));
-    element.style.setProperty('--reveal-y', `${(1 - progress) * 36}px`);
+  if (layoutDirty) measureLayout();
+  const scroll = window.scrollY, motion = !reducedMotion.matches, lightweight = lightweightMotion.matches;
+  for (const entry of revealLayout) {
+    const progress = motion ? clamp((viewportHeight * .96 - (entry.top - scroll) - entry.delay) / (viewportHeight * .25)) : 1;
+    const active = motion && progress > 0 && progress < 1;
+    if (entry.enabled !== motion) { entry.element.classList.toggle('scroll-reveal', motion); entry.enabled = motion; }
+    if (entry.active !== active) { entry.element.classList.toggle('is-revealing', active); entry.active = active; }
+    if (entry.progress === progress) continue;
+    entry.progress = progress;
+    style(entry.element, '--reveal-opacity', String(progress));
+    style(entry.element, '--reveal-y', `${(1 - progress) * 36}px`);
   }
-  hero?.style.setProperty('--glow-shift', `${motion ? Math.min(scroll * 0.15, 160) : 0}px`);
+  style(hero, '--glow-shift', `${motion ? Math.min(scroll * .15, 160) : 0}px`);
   header?.classList.toggle('is-collapsed', scroll > 110);
-  paintBrandStory(scroll, motion);
-  const range = document.documentElement.scrollHeight - height;
-  header?.style.setProperty('--page-progress', String(range > 0 ? Math.max(0, Math.min(1, scroll / range)) : 0));
+  paintBrandStory(scroll, motion, lightweight);
+  style(header, '--page-progress', String(scrollRange > 0 ? clamp(scroll / scrollRange) : 0));
 }
 function schedulePaint() {
   if (!frame) frame = window.requestAnimationFrame(paintReveals);
 }
+function invalidateLayout() { layoutDirty = true; schedulePaint(); }
 window.addEventListener('scroll', schedulePaint, { passive: true });
-window.addEventListener('resize', () => { measureBrandStory(); schedulePaint(); }, { passive: true });
-window.addEventListener('pageshow', schedulePaint);
-window.addEventListener('load', () => { measureBrandStory(); schedulePaint(); });
-document.addEventListener('toggle', schedulePaint, true);
-reducedMotion.addEventListener('change', schedulePaint);
-if ('ResizeObserver' in window && brandStory) {
-  const layoutObserver = new ResizeObserver(() => { measureBrandStory(); schedulePaint(); });
+window.addEventListener('resize', invalidateLayout, { passive: true });
+window.addEventListener('pageshow', invalidateLayout);
+window.addEventListener('load', invalidateLayout);
+document.addEventListener('toggle', invalidateLayout, true);
+reducedMotion.addEventListener('change', invalidateLayout);
+lightweightMotion.addEventListener('change', invalidateLayout);
+if ('ResizeObserver' in window) {
+  const layoutObserver = new ResizeObserver(invalidateLayout);
   layoutObserver.observe(document.body);
+  if (brandStage) layoutObserver.observe(brandStage);
 }
-document.fonts?.ready.then(() => { measureBrandStory(); schedulePaint(); });
-measureBrandStory();
+document.fonts?.ready.then(invalidateLayout);
 paintReveals();
 // Keep keyboard navigation available after the header slides out of sight.
 header?.addEventListener('focusin', event => {
@@ -101,19 +124,52 @@ header?.addEventListener('focusin', event => {
 header?.addEventListener('focusout', event => {
   if (!header.contains(event.relatedTarget)) header.classList.remove('has-keyboard-focus');
 });
-const answers = document.querySelectorAll('[data-answer]');
+// Match the app: reveal one answer, then rate recall with four grades.
+const revealAnswer = document.querySelector('.quiz-reveal');
+const demoAnswer = document.querySelector('#review-demo-answer');
 const feedback = document.querySelector('#quiz-feedback');
-for (const button of answers) {
-  button.addEventListener('click', () => {
-    for (const answer of answers) {
-      answer.classList.remove('correct', 'wrong');
-      answer.removeAttribute('aria-pressed');
-    }
-    const correct = button.dataset.answer === 'true';
-    button.classList.add(correct ? 'correct' : 'wrong');
-    button.setAttribute('aria-pressed', 'true');
-    if (correct) openQuizCelebration(button);
-    feedback.textContent = correct ? '正解！ focus = 集中する。ひとつ、思い出せました。' : 'もう一度。「集中する」に合う単語を選んでみましょう。';
+const grades = [...document.querySelectorAll('[data-review-grade]')];
+if (revealAnswer && demoAnswer && feedback) {
+  revealAnswer.hidden = false;
+  revealAnswer.addEventListener('click', () => {
+    demoAnswer.hidden = false;
+    revealAnswer.hidden = true;
+    revealAnswer.setAttribute('aria-expanded', 'true');
+    feedback.textContent = '答えは focus。答えを見る前の手応えを選んでください。';
+    grades[0]?.focus({ preventScroll: true });
+    schedulePaint();
+  });
+  for (const button of grades) button.addEventListener('click', () => {
+    grades.forEach(grade => grade.setAttribute('aria-pressed', String(grade === button)));
+    feedback.textContent = `次回の復習：${button.dataset.interval}。これは初回評価の体験です。復習予定・記録は保存しません。`;
+    openQuizCelebration(button);
+  });
+}
+// A visual preview only: no microphone, storage, real timer or notification permission.
+const flowDialog = document.querySelector('.flow-demo');
+const flowTrigger = document.querySelector('.flow-demo-open');
+if (flowDialog && flowTrigger) {
+  let flowOverflow = '';
+  flowTrigger.hidden = false;
+  const dial = document.querySelector('.flowstate-visual .demo-dial');
+  if (dial) {
+    const preview = dial.cloneNode(true);
+    // Cloned SVG definitions must have unique document IDs.
+    preview.querySelector('linearGradient')?.setAttribute('id', 'dial-flow-preview');
+    preview.querySelector('.demo-dial-progress')?.setAttribute('stroke', 'url(#dial-flow-preview)');
+    flowDialog.querySelector('.flow-demo-dial').append(preview);
+  }
+  flowTrigger.addEventListener('click', () => {
+    if (flowDialog.open) return;
+    flowOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    flowDialog.showModal();
+    flowDialog.querySelector('.flow-demo-close').focus();
+  });
+  flowDialog.querySelector('.flow-demo-close').addEventListener('click', () => flowDialog.close());
+  flowDialog.addEventListener('close', () => {
+    document.body.style.overflow = flowOverflow;
+    flowTrigger.focus({ preventScroll: true });
   });
 }
 
@@ -228,3 +284,29 @@ quizCelebration.addEventListener('close', () => {
 reducedMotion.addEventListener('change', () => {
   if (reducedMotion.matches && quizCelebration.open) finishQuizCelebration();
 });
+
+// Use the app's three arena views; fixtures stay local to the introduction page.
+const arenaTabs = [...document.querySelectorAll('[data-arena-mode]')];
+const arenaPanel = document.querySelector('#arena-preview-panel');
+if (arenaTabs.length && arenaPanel) {
+  document.querySelector('.arena-preview-tabs').hidden = false;
+  const showArena = button => {
+    const template = document.querySelector(`[data-arena-template="${button.dataset.arenaMode}"]`);
+    if (!template) return;
+    for (const tab of arenaTabs) {
+      tab.setAttribute('aria-selected', String(tab === button));
+      tab.tabIndex = tab === button ? 0 : -1;
+    }
+    arenaPanel.replaceChildren(template.content.cloneNode(true));
+    arenaPanel.setAttribute('aria-label', `${button.textContent}のランキング`);
+    schedulePaint();
+  };
+  arenaTabs.forEach((button, index) => {
+    button.addEventListener('click', () => showArena(button));
+    button.addEventListener('keydown', event => {
+      const next = event.key === 'ArrowRight' ? (index + 1) % arenaTabs.length : event.key === 'ArrowLeft' ? (index + arenaTabs.length - 1) % arenaTabs.length : event.key === 'Home' ? 0 : event.key === 'End' ? arenaTabs.length - 1 : -1;
+      if (next < 0) return;
+      event.preventDefault(); showArena(arenaTabs[next]); arenaTabs[next].focus();
+    });
+  });
+}
