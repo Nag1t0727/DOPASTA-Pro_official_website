@@ -314,35 +314,12 @@ h3,.sound-steps h3{font-size:clamp(23px,2.1vw,28px);line-height:1.5}
 .is-brand-active .brand-symbol{will-change:transform,opacity}
 @media(max-width:760px),(pointer:coarse){.brand-aura,.brand-symbol{filter:none}}
 @media(prefers-reduced-motion:reduce){.scroll-reveal.is-revealing,.is-brand-active .brand-symbol{will-change:auto}}
-/* Keep the animated headline in its own space and prose at a readable measure. */
-.achievement-inner{width:100%;max-width:1100px;margin-inline:auto}
-.achievement-heading{max-width:960px;margin:0 auto 56px;text-align:center}
-.achievement-heading h2{margin-bottom:0}
-.achievement-layout{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:clamp(32px,5vw,64px);align-items:center;text-align:left}
-.achievement-showcase{min-width:0;min-height:360px;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:54px 28px;border:1px solid #ffffff20;border-radius:28px;background:radial-gradient(ellipse at 20% 20%,#65a9ff15,transparent 70%),radial-gradient(ellipse at 90% 80%,#ff73b515,transparent 70%),#11131c;overflow:hidden;isolation:isolate}
-.achievement .achievement-type{width:100%;min-width:0;margin:0;padding:22px 0;font-size:clamp(38px,4.3vw,62px);line-height:1.3;text-align:center}
-.achievement-showcase .achievement-motion-toggle{flex-shrink:0;margin:28px 0 0;font-size:14px;color:#c9cddd;border-color:#ffffff35;background:#090a1040}
-.achievement-copy{min-width:0;max-width:640px}
-.achievement-description .body-copy{margin:0;color:#d8dbe7;font-size:clamp(18px,1.65vw,22px);line-height:1.85;overflow-wrap:anywhere;text-wrap:pretty}
-.achievement-description .body-copy+p{margin-top:18px}
-.achievement-notes{display:grid;gap:24px;margin-top:30px;padding-top:27px;border-top:1px solid #ffffff20}
-.achievement-note h3{margin:0 0 9px;color:#e2e5f0;font-size:17px;font-weight:650;line-height:1.6;letter-spacing:-.02em}
-.achievement-note .fine-print{margin:0;color:#b5b9cd;font-size:15px;line-height:1.85;overflow-wrap:anywhere;text-wrap:pretty}
-.achievement-note a{width:fit-content;max-width:100%;color:#9fd6ff;text-decoration-color:#9fd6ff80;text-underline-offset:5px;margin-top:14px;line-height:1.9}
-@media(max-width:900px){
-  .achievement-layout{grid-template-columns:minmax(0,1fr);gap:36px;max-width:640px;margin-inline:auto}
-  .achievement-heading{margin-bottom:36px}
-  .achievement-showcase{min-height:260px;padding:36px 24px}
-  .achievement .achievement-type{font-size:clamp(38px,7.5vw,62px)}
-}
-@media(max-width:600px){
-  .achievement-showcase{min-height:230px;padding:28px 18px;border-radius:22px}
-  .achievement .achievement-type{font-size:clamp(28px,8.3vw,48px);padding-block:18px}
-  .achievement-layout{gap:30px}
-  .achievement-showcase .achievement-motion-toggle{margin-top:20px}
-  .achievement-description .body-copy{font-size:18px;line-height:1.9}
-  .achievement-notes{gap:23px;margin-top:26px;padding-top:24px}
-}
+/* Keep the original full-width celebration; only constrain and break up its prose. */
+.achievement-copy{width:100%;max-width:760px;margin-inline:auto;text-align:center}
+.achievement-copy .body-copy{margin:0;line-height:1.95;text-wrap:pretty}
+.achievement-copy .body-copy+.body-copy{margin-top:16px}
+.achievement-copy .fine-print{margin:26px 0 0;color:#b5b9cd;line-height:1.9;text-wrap:pretty}
+
 /* Flowstate: an optional scroll scene; the base markup stays readable without JavaScript. */
 .flowstate-ambient,.flowstate-shade{display:none}
 .flowstate-orbit{position:relative;transform-origin:50% 50%}

@@ -1,30 +1,26 @@
 import { test, expect } from '@playwright/test';
 
 for (const width of [320, 390, 768, 1024, 1440]) {
-  test(`achievement text and animation have separate readable regions at ${width}px`, async ({ page }) => {
+  test(`achievement keeps its original full-width animation and readable paragraphs at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 });
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/');
     const section = page.locator('.achievement');
-    const showcase = section.locator('.achievement-showcase');
+    const showcase = section.locator('.achievement-type');
     const copy = section.locator('.achievement-copy');
     for (const block of await section.locator('.reveal').all()) {
       await block.scrollIntoViewIfNeeded();
       await expect(block).toHaveCSS('opacity', '1');
     }
-    await expect(copy).toHaveCSS('text-align', 'left');
+    await expect(copy).toHaveCSS('text-align', 'center');
     await expect(copy.locator('.body-copy')).toHaveCount(2);
-    await expect(copy.locator('h3')).toHaveText(['季節限定のお楽しみも。', '集中度は、振り返りの目安。']);
+    await expect(section.locator('.achievement-showcase,.achievement-layout,h3')).toHaveCount(0);
     const visualBox = await showcase.boundingBox();
     const textBox = await copy.boundingBox();
     expect(visualBox).not.toBeNull();
     expect(textBox).not.toBeNull();
-    if (width > 900) {
-      expect(textBox!.x).toBeGreaterThanOrEqual(visualBox!.x + visualBox!.width + 30);
-    } else {
-      expect(textBox!.y).toBeGreaterThanOrEqual(visualBox!.y + visualBox!.height + 28);
-    }
-    expect(textBox!.width).toBeLessThanOrEqual(640);
+    expect(textBox!.y).toBeGreaterThanOrEqual(visualBox!.y + visualBox!.height);
+    expect(textBox!.width).toBeLessThanOrEqual(760);
     for (const paragraph of await copy.locator('p').all()) {
       expect(await paragraph.evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true);
       expect(await paragraph.evaluate(node => parseFloat(getComputedStyle(node).fontSize))).toBeGreaterThanOrEqual(15);
@@ -37,18 +33,18 @@ for (const width of [320, 390, 768, 1024, 1440]) {
 }
 
 for (const width of [390, 1440]) {
-  test(`achievement words stay inside their panel and can pause at ${width}px`, async ({ page }) => {
+  test(`achievement full-width words stay visible and can pause at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 });
     await page.goto('/');
     const section = page.locator('.achievement');
-    const visual = section.locator('.achievement-showcase');
+    const visual = section;
     const type = section.locator('.achievement-type');
     await type.scrollIntoViewIfNeeded();
     await expect(type).toHaveClass(/is-playing/);
     const pause = section.getByRole('button', { name: '演出を一時停止' });
     await pause.click();
     await expect(type).not.toHaveClass(/is-playing/);
-    // The extremes of the word rotation must leave room inside the panel.
+    // The original rotating words must stay inside the section on narrow screens.
     for (let i = 0; i < 4; i++) {
       await page.locator('.achievement-word').evaluateAll((nodes, active) => nodes.forEach((node, index) => node.classList.toggle('is-active', index === active)), i);
       await page.waitForTimeout(700);
@@ -74,7 +70,7 @@ test('achievement description remains readable without JavaScript', async ({ bro
     await page.goto('/');
     const copy = page.locator('.achievement-copy');
     await expect(copy).toContainText('毎回違う達成の瞬間');
-    await expect(copy.locator('.body-copy').first()).toHaveCSS('text-align', 'left');
+    await expect(copy.locator('.body-copy').first()).toHaveCSS('text-align', 'center');
     await expect(page.locator('.achievement-word.is-active')).toHaveCSS('opacity', '1');
     await expect(page.locator('.achievement-motion-toggle')).toBeHidden();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
