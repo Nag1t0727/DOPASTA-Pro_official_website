@@ -11,6 +11,9 @@ const brandSymbol = document.querySelector('.brand-symbol');
 const brandAura = document.querySelector('.brand-aura');
 const brandCue = document.querySelector('.brand-scroll-cue');
 const brandLetters = [...document.querySelectorAll('.brand-letter')];
+const flowSection = document.querySelector('.flowstate-feature');
+const flowTrack = document.querySelector('.flowstate-track');
+const flowStage = document.querySelector('.flowstate-stage');
 const clamp = (value, min = 0, max = 1) => Math.max(min, Math.min(max, value));
 const ease = value => value * value * (3 - 2 * value);
 const styleValues = new WeakMap();
@@ -23,6 +26,7 @@ function style(element, property, value) {
 }
 let frame = 0, layoutDirty = true, viewportHeight = 1, scrollRange = 1;
 let storyTop = 0, storyTravel = 1, stageWidth = 1, lastStoryProgress = null;
+let flowTop = 0, flowTravel = 1, flowWidth = 1, lastFlowProgress = null;
 let revealLayout = [];
 const letterDraws = brandLetters.map(() => null);
 // offsetTop excludes animated transforms, so reversing a scroll returns the same frame.
@@ -45,6 +49,12 @@ function measureLayout() {
     storyTravel = Math.max(1, brandStory.offsetHeight - brandStage.offsetHeight);
     stageWidth = brandStage.clientWidth;
   }
+  if (flowTrack && flowStage) {
+    flowTop = layoutTop(flowTrack);
+    flowTravel = Math.max(1, flowTrack.offsetHeight - flowStage.offsetHeight);
+    flowWidth = flowStage.clientWidth;
+  }
+  lastFlowProgress = null;
   lastStoryProgress = null;
   layoutDirty = false;
 }
@@ -80,6 +90,35 @@ function paintBrandStory(scroll, motion, lightweight) {
 }
 // JavaScript-free and reduced-motion views retain the finished brand composition.
 brandStory?.classList.add('has-scroll-motion');
+// The scene is pinned by CSS; every frame uses cached geometry and compositor transforms.
+flowSection?.classList.add('has-flow-motion');
+function paintFlowstate(scroll, motion, lightweight) {
+  if (!flowStage || !flowTrack) return;
+  const enabled = motion && viewportHeight >= 680;
+  const progress = enabled ? Math.round(clamp((scroll - flowTop) / flowTravel) * 100000) / 100000 : 1;
+  if (progress === lastFlowProgress) return;
+  lastFlowProgress = progress;
+  flowTrack.classList.toggle('is-flow-active', enabled && progress > 0 && progress < 1);
+  const enter = ease(clamp(progress / .4));
+  const settle = ease(clamp((progress - .68) / .32));
+  const focus = ease(clamp((progress - .1) / .32)) * (1 - settle);
+  const sweep = Math.sin(progress * Math.PI * 2);
+  const stacked = flowWidth <= 760;
+  const center = stacked ? 0 : -flowWidth * .22 * focus;
+  const x = center + sweep * (lightweight ? 30 : 65);
+  const y = (1 - enter) * 95 - Math.sin(progress * Math.PI) * 36;
+  const scale = .72 + enter * .28 + focus * (lightweight ? .28 : .48);
+  const rotateX = (1 - enter) * 48 - sweep * 12;
+  const rotateY = sweep * (lightweight ? 18 : 30);
+  const rotateZ = -24 * (1 - enter) + sweep * 18;
+  style(flowStage, '--flow-orbit-transform', `translate3d(${x.toFixed(3)}px,${y.toFixed(3)}px,0) rotateX(${rotateX.toFixed(3)}deg) rotateY(${rotateY.toFixed(3)}deg) rotateZ(${rotateZ.toFixed(3)}deg) scale(${scale.toFixed(4)})`);
+  style(flowStage, '--flow-copy-transform', `translate3d(${(-focus * (stacked ? 0 : 70)).toFixed(3)}px,${(-focus * (stacked ? 25 : 10)).toFixed(3)}px,0) scale(${(1 - focus * .08).toFixed(4)})`);
+  style(flowStage, '--flow-copy-opacity', String(1 - focus));
+  style(flowStage, '--flow-darkness', String(.3 + focus * .7));
+  style(flowStage, '--flow-ambient-opacity', String((1 - focus) * .65));
+  style(flowStage, '--flow-ambient-transform', `translate3d(0,${(-focus * 60).toFixed(3)}px,0) rotate(${(sweep * -8).toFixed(3)}deg) scale(${(1 + focus * .25).toFixed(4)})`);
+  style(flowStage, '--flow-ring-offset', String((1 - enter) * 817));
+}
 function paintReveals() {
   frame = 0;
   if (layoutDirty) measureLayout();
@@ -97,6 +136,7 @@ function paintReveals() {
   style(hero, '--glow-shift', `${motion ? Math.min(scroll * .15, 160) : 0}px`);
   header?.classList.toggle('is-collapsed', scroll > 110);
   paintBrandStory(scroll, motion, lightweight);
+  paintFlowstate(scroll, motion, lightweight);
   style(header, '--page-progress', String(scrollRange > 0 ? clamp(scroll / scrollRange) : 0));
 }
 function schedulePaint() {
@@ -114,6 +154,7 @@ if ('ResizeObserver' in window) {
   const layoutObserver = new ResizeObserver(invalidateLayout);
   layoutObserver.observe(document.body);
   if (brandStage) layoutObserver.observe(brandStage);
+  if (flowStage) layoutObserver.observe(flowStage);
 }
 document.fonts?.ready.then(invalidateLayout);
 paintReveals();

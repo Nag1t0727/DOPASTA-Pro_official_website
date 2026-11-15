@@ -41,7 +41,10 @@ for (const width of [320, 390, 768, 1024, 1440]) {
     await openFlow.click();
     await page.locator('.flow-demo-close').click();
     expect(await page.evaluate(() => JSON.stringify(localStorage))).toBe(storageBefore);
-    await expect(page.locator('.presence-cards article')).toHaveCount(3);
+    await expect(page.locator('.presence-cards article')).toHaveCount(4);
+    await expect(page.locator('#presence .status-preview')).toHaveText(['学習中', '一時停止中', 'オンライン', 'オフライン']);
+    await expect(page.locator('#presence h2, #presence h3, #presence .eyebrow')).toHaveCount(0);
+    await page.locator('#presence').screenshot({ path: `test-results/presence-${width}.png`, style: '.site-header,.header-accent,.skip{visibility:hidden!important}' });
     for (const section of ['materials', 'flowstate', 'presence', 'reports', 'community', 'notifications', 'how', 'faq']) {
       await page.locator(`#${section}`).scrollIntoViewIfNeeded();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
