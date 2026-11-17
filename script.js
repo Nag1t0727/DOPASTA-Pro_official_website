@@ -8,6 +8,8 @@ const header = document.querySelector('.site-header');
 const brandStory = document.querySelector('.brand-story');
 const brandStage = document.querySelector('.brand-stage');
 const brandSymbol = document.querySelector('.brand-symbol');
+const brandComposition = document.querySelector('.brand-composition');
+const mobileBrandMotion = window.matchMedia('(max-width:760px)');
 const brandAura = document.querySelector('.brand-aura');
 const brandCue = document.querySelector('.brand-scroll-cue');
 const brandLetters = [...document.querySelectorAll('.brand-letter')];
@@ -64,21 +66,37 @@ function paintBrandStory(scroll, motion, lightweight) {
   if (progress === lastStoryProgress) return;
   lastStoryProgress = progress;
   brandStory.classList.toggle('is-brand-active', motion && progress > 0 && progress < 1);
+  const closeup = motion && mobileBrandMotion.matches;
   const entrance = ease(clamp(progress / .22));
-  const move = ease(clamp((progress - .24) / .26));
+  const move = ease(clamp((progress - (closeup ? .20 : .24)) / (closeup ? .14 : .26)));
+  // Mobile: push into the lettering, track its left-to-right drawing, then pull back.
+  // The camera has no scroll-frame layout reads; its transform is based on cached width.
+  const push = closeup ? ease(clamp((progress - .28) / .12)) : 0;
+  const pull = closeup ? ease(clamp((progress - .86) / .12)) : 1;
+  const zoom = push * (1 - pull);
+  const scan = clamp((progress - .40) / .43);
+  const detail = closeup ? 3.6 : 1;
+  const cameraScale = 1 + zoom * (detail - 1);
+  const focus = .28 + .71 * (.075 + scan * .85);
+  const cameraX = (stageWidth * .5 - stageWidth * focus) * cameraScale * zoom;
+  // Promote at full zoom so the SVG is rasterized sharply at its close-up size.
+  brandComposition?.classList.toggle('is-camera-tracking', closeup && zoom === 1);
+  style(brandComposition, 'width', `${detail * 100}%`);
+  style(brandComposition, 'left', `${(1 - detail) * 50}%`);
+  style(brandComposition, 'transform', `translate(${cameraX.toFixed(3)}px,0) scale(${(cameraScale / detail).toFixed(6)})`);
   const startSize = Math.min(360, stageWidth * .58);
   const endSize = stageWidth * .21;
   // The image's left/width stay fixed during scrolling; only its composited transform moves.
-  style(brandSymbol, '--symbol-size', `${startSize}px`);
-  style(brandSymbol, '--symbol-shift', `${(-stageWidth * .36 * move).toFixed(3)}px`);
+  style(brandSymbol, '--symbol-size', `${startSize * detail}px`);
+  style(brandSymbol, '--symbol-shift', `${(-stageWidth * .36 * move * detail).toFixed(3)}px`);
   style(brandSymbol, '--symbol-scale', String((.68 + entrance * .32) * (1 - move * (1 - endSize / startSize))));
-  style(brandSymbol, '--symbol-y', `${((1 - entrance) * 70).toFixed(3)}px`);
+  style(brandSymbol, '--symbol-y', `${((1 - entrance) * 70 * detail).toFixed(3)}px`);
   style(brandSymbol, '--symbol-opacity', String(entrance));
   style(brandSymbol, '--symbol-blur', lightweight ? '0px' : `${((1 - entrance) * 16).toFixed(3)}px`);
   style(brandAura, 'opacity', String(entrance * (1 - move * .65) * .7));
   style(brandCue, 'opacity', String(1 - clamp(progress / .18)));
   brandLetters.forEach((letter, i) => {
-    const draw = clamp((progress - .47 - i * .032) / .17);
+    const draw = closeup ? clamp((progress - .36 - i * .043) / .105) : clamp((progress - .47 - i * .032) / .17);
     if (letterDraws[i] === draw) return;
     letterDraws[i] = draw;
     const fill = ease(clamp((draw - .48) / .52));
