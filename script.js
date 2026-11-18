@@ -13,6 +13,7 @@ const mobileBrandMotion = window.matchMedia('(max-width:760px)');
 const brandAura = document.querySelector('.brand-aura');
 const brandCue = document.querySelector('.brand-scroll-cue');
 const brandLetters = [...document.querySelectorAll('.brand-letter')];
+const brandWordmark = document.querySelector('.brand-wordmark');
 const flowSection = document.querySelector('.flowstate-feature');
 const flowTrack = document.querySelector('.flowstate-track');
 const flowStage = document.querySelector('.flowstate-stage');
@@ -26,11 +27,97 @@ function style(element, property, value) {
   if (previous.get(property) === value) return;
   previous.set(property, value); element.style.setProperty(property, value);
 }
-let frame = 0, layoutDirty = true, viewportHeight = 1, scrollRange = 1;
+let frame = 0, layoutDirty = true, viewportHeight = 1, viewportWidth = window.innerWidth, scrollRange = 1;
 let storyTop = 0, storyTravel = 1, stageWidth = 1, lastStoryProgress = null;
 let flowTop = 0, flowTravel = 1, flowWidth = 1, lastFlowProgress = null;
 let revealLayout = [];
 const letterDraws = brandLetters.map(() => null);
+let bitmapWordmark = null, bitmapLetters = [], bitmapKey = '', bitmapPending = '', bitmapGeneration = 0;
+const bitmapDraws = brandLetters.map(() => null);
+
+// Prepare small, bounded PNG sprites once. Scroll frames never redraw SVG text on phones.
+function imageReady(source) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image); image.onerror = reject; image.src = source;
+  });
+}
+async function wordmarkSprite(width, outline, font) {
+  const svg = brandWordmark.cloneNode(true);
+  svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  svg.setAttribute('width', String(width)); svg.setAttribute('height', String(Math.ceil(width * 190 / 1060)));
+  svg.removeAttribute('class'); svg.removeAttribute('style');
+  svg.setAttribute('style', `font-family:${font};font-weight:850;font-size:150px;letter-spacing:-5px`);
+  svg.querySelectorAll('.brand-letter').forEach((letter, index) => {
+    letter.removeAttribute('style'); letter.removeAttribute('class');
+    letter.querySelectorAll('text').forEach(text => {
+      const isOutline = text.classList.contains('brand-letter-outline');
+      if (isOutline !== outline) { text.remove(); return; }
+      text.removeAttribute('class'); text.removeAttribute('style');
+      text.setAttribute('fill', outline ? 'none' : index < 4 ? '#f2f3f7' : 'url(#wordmark-gradient)');
+      if (outline) { text.setAttribute('stroke', 'url(#wordmark-gradient)'); text.setAttribute('stroke-width', '1.4'); }
+    });
+  });
+  const source = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(svg))}`;
+  const image = await imageReady(source), canvas = document.createElement('canvas');
+  canvas.width = width; canvas.height = Math.ceil(width * 190 / 1060);
+  const context = canvas.getContext('2d');
+  if (!context) throw Error('Canvas unavailable');
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  const png = canvas.toDataURL('image/png');
+  canvas.width = 1; canvas.height = 1;
+  return { source: png, image: await imageReady(png) };
+}
+function glyphSprite(source, start, end) {
+  const left = Math.floor(start / 1060 * source.naturalWidth), right = Math.ceil(end / 1060 * source.naturalWidth);
+  const canvas = document.createElement('canvas'); canvas.width = right - left; canvas.height = source.naturalHeight;
+  const context = canvas.getContext('2d');
+  if (!context) throw Error('Canvas unavailable');
+  context.drawImage(source, left, 0, canvas.width, canvas.height, 0, 0, canvas.width, canvas.height);
+  const image = new Image(); image.src = canvas.toDataURL('image/png');
+  canvas.width = 1; canvas.height = 1;
+  return image;
+}
+function scheduleBrandBitmap() {
+  if (!brandWordmark || !brandComposition || !mobileBrandMotion.matches || reducedMotion.matches) return;
+  // Retain retina detail without allocating a viewport-sized high-DPI canvas.
+  const width = Math.min(2048, Math.max(640, Math.ceil(stageWidth * .71 * 3.6 * Math.min(devicePixelRatio || 1, 2))));
+  const key = String(width);
+  if (bitmapKey === key || bitmapPending === key) return;
+  const generation = ++bitmapGeneration; bitmapPending = key;
+  const prepare = async () => {
+    try {
+      await document.fonts?.ready;
+      const font = getComputedStyle(brandWordmark).fontFamily;
+      const outline = await wordmarkSprite(width, true, font), fill = await wordmarkSprite(width, false, font);
+      if (generation !== bitmapGeneration) return;
+      const wordmark = document.createElement('div');
+      wordmark.className = 'brand-bitmap-wordmark'; wordmark.setAttribute('aria-hidden', 'true');
+      const letters = brandLetters.map(letter => {
+        const text = letter.querySelector('.brand-letter-fill');
+        const x = Number(text.getAttribute('x')), letterWidth = Number(text.getAttribute('textLength'));
+        // A small padding preserves edge strokes, including the first D.
+        const start = Math.max(0, x - 3), end = Math.min(1060, x + letterWidth + 3), span = end - start;
+        const cell = document.createElement('span'); cell.className = 'brand-bitmap-letter';
+        cell.style.left = `${start / 1060 * 100}%`; cell.style.width = `${span / 1060 * 100}%`;
+        const window = document.createElement('span'); window.className = 'brand-bitmap-window';
+        const counter = document.createElement('span'); counter.className = 'brand-bitmap-counter';
+        const stroke = glyphSprite(outline.image, start, end), color = glyphSprite(fill.image, start, end);
+        for (const image of [stroke, color]) { image.alt = ''; image.draggable = false; }
+        color.className = 'brand-bitmap-fill'; counter.append(stroke); window.append(counter); cell.append(window, color); wordmark.append(cell);
+        return { cell, window, counter, color };
+      });
+      await Promise.all([...wordmark.querySelectorAll('img')].map(image => image.decode ? image.decode() : imageReady(image.src)));
+      if (generation !== bitmapGeneration) return;
+      brandComposition.append(wordmark); bitmapWordmark?.remove(); bitmapWordmark = wordmark; bitmapLetters = letters;
+      bitmapKey = key; bitmapDraws.fill(null); lastStoryProgress = null; schedulePaint();
+    } catch {
+      // If a device cannot prepare sprites, retain the readable SVG fallback.
+    } finally { if (generation === bitmapGeneration) bitmapPending = ''; }
+  };
+  if ('requestIdleCallback' in window) window.requestIdleCallback(prepare, { timeout: 1500 });
+  else setTimeout(prepare, 80);
+}
 // offsetTop excludes animated transforms, so reversing a scroll returns the same frame.
 function layoutTop(element) {
   let top = 0;
@@ -38,7 +125,7 @@ function layoutTop(element) {
   return top;
 }
 function measureLayout() {
-  viewportHeight = window.innerHeight;
+  viewportHeight = window.innerHeight; viewportWidth = window.innerWidth;
   scrollRange = Math.max(0, document.documentElement.scrollHeight - viewportHeight);
   // Batch every geometry/style read before making any animation writes.
   revealLayout = reveals.map(element => {
@@ -59,6 +146,7 @@ function measureLayout() {
   lastFlowProgress = null;
   lastStoryProgress = null;
   layoutDirty = false;
+  scheduleBrandBitmap();
 }
 function paintBrandStory(scroll, motion, lightweight) {
   if (!brandStory || !brandStage) return;
@@ -79,8 +167,10 @@ function paintBrandStory(scroll, motion, lightweight) {
   const cameraScale = 1 + zoom * (detail - 1);
   const focus = .28 + .71 * (.075 + scan * .85);
   const cameraX = (stageWidth * .5 - stageWidth * focus) * cameraScale * zoom;
-  // Promote at full zoom so the SVG is rasterized sharply at its close-up size.
-  brandComposition?.classList.toggle('is-camera-tracking', closeup && zoom === 1);
+  const bitmap = closeup && !!bitmapWordmark;
+  brandStory.classList.toggle('has-brand-bitmap', bitmap);
+  // Mobile sprites remain at a fixed raster size while the camera moves around them.
+  brandComposition?.classList.toggle('is-camera-tracking', closeup && progress > .24 && progress < .99);
   style(brandComposition, 'width', `${detail * 100}%`);
   style(brandComposition, 'left', `${(1 - detail) * 50}%`);
   style(brandComposition, 'transform', `translate(${cameraX.toFixed(3)}px,0) scale(${(cameraScale / detail).toFixed(6)})`);
@@ -97,6 +187,19 @@ function paintBrandStory(scroll, motion, lightweight) {
   style(brandCue, 'opacity', String(1 - clamp(progress / .18)));
   brandLetters.forEach((letter, i) => {
     const draw = closeup ? clamp((progress - .36 - i * .043) / .105) : clamp((progress - .47 - i * .032) / .17);
+    if (bitmap) {
+      if (bitmapDraws[i] === draw) return;
+      bitmapDraws[i] = draw;
+      const { cell, window, counter, color } = bitmapLetters[i];
+      const fill = ease(clamp((draw - .48) / .52)), wipe = (1 - ease(draw)) * 100;
+      style(window, 'transform', `translate3d(${-wipe}%,0,0)`);
+      style(counter, 'transform', `translate3d(${wipe}%,0,0)`);
+      style(window, 'opacity', String(clamp(draw * 5) * (1 - fill)));
+      style(color, 'opacity', String(fill));
+      // Only the two or three letters being revealed need their own layers.
+      cell.classList.toggle('is-drawing', draw > 0 && draw < 1);
+      return;
+    }
     if (letterDraws[i] === draw) return;
     letterDraws[i] = draw;
     const fill = ease(clamp((draw - .48) / .52));
@@ -133,8 +236,6 @@ function paintFlowstate(scroll, motion, lightweight) {
   style(flowStage, '--flow-copy-transform', `translate3d(${(-focus * (stacked ? 0 : 70)).toFixed(3)}px,${(-focus * (stacked ? 25 : 10)).toFixed(3)}px,0) scale(${(1 - focus * .08).toFixed(4)})`);
   style(flowStage, '--flow-copy-opacity', String(1 - focus));
   style(flowStage, '--flow-darkness', String(.3 + focus * .7));
-  style(flowStage, '--flow-ambient-opacity', String((1 - focus) * .65));
-  style(flowStage, '--flow-ambient-transform', `translate3d(0,${(-focus * 60).toFixed(3)}px,0) rotate(${(sweep * -8).toFixed(3)}deg) scale(${(1 + focus * .25).toFixed(4)})`);
   style(flowStage, '--flow-ring-offset', String((1 - enter) * 817));
 }
 function paintReveals() {
@@ -162,7 +263,12 @@ function schedulePaint() {
 }
 function invalidateLayout() { layoutDirty = true; schedulePaint(); }
 window.addEventListener('scroll', schedulePaint, { passive: true });
-window.addEventListener('resize', invalidateLayout, { passive: true });
+window.addEventListener('resize', () => {
+  // Safari's address bar changes innerHeight during a swipe without changing document layout.
+  // Actual element/width changes are still handled by ResizeObserver and this width check.
+  if (window.innerWidth !== viewportWidth) invalidateLayout();
+  else { viewportHeight = window.innerHeight; lastFlowProgress = null; schedulePaint(); }
+}, { passive: true });
 window.addEventListener('pageshow', invalidateLayout);
 window.addEventListener('load', invalidateLayout);
 document.addEventListener('toggle', invalidateLayout, true);

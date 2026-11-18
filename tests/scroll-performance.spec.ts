@@ -5,6 +5,7 @@ for (const width of [320, 390, 1440]) test(`cached scrolling preserves the brand
   const cdp = await context.newCDPSession(page);
   await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
   await page.goto('/');
+  if(width<760) await expect(page.locator('.brand-bitmap-wordmark')).toHaveCount(1);
   await page.addStyleTag({ content: 'html{scroll-behavior:auto!important}' });
   const metrics = await page.evaluate(async () => {
     await document.fonts.ready;
@@ -24,7 +25,7 @@ for (const width of [320, 390, 1440]) test(`cached scrolling preserves the brand
     return { reads, finalLeft: (document.querySelector('.brand-symbol') as HTMLElement).style.left, viewportWidth: document.documentElement.scrollWidth };
   });
   expect(metrics.reads).toBe(0); expect(metrics.finalLeft).toBe(''); expect(metrics.viewportWidth).toBeLessThanOrEqual(width);
-  await expect(page.locator('.brand-letter-fill').last()).toHaveCSS('opacity', '1');
+  await expect(page.locator(width<760 ? '.brand-bitmap-fill' : '.brand-letter-fill').last()).toHaveCSS('opacity', '1');
   await page.screenshot({ path: test.info().outputPath(`brand-final-${width}.png`) });
   if (width < 760) { await expect(page.locator('.brand-symbol')).toHaveCSS('filter', 'none'); await expect(page.locator('.brand-aura')).toHaveCSS('filter', 'none'); }
   const idleMutations = await page.evaluate(async () => {
@@ -42,6 +43,6 @@ for (const width of [320, 390, 1440]) test(`cached scrolling preserves the brand
   await page.emulateMedia({ reducedMotion: 'reduce' }); await expect(page.locator('.brand-letter-fill').last()).toHaveCSS('opacity', '1');
   await page.emulateMedia({ reducedMotion: 'no-preference' }); await page.setViewportSize({ width: width < 760 ? 430 : 1100, height: 900 });
   await page.evaluate(() => { const story = document.querySelector('.brand-story') as HTMLElement, stage = document.querySelector('.brand-stage') as HTMLElement; scrollTo(0, story.getBoundingClientRect().top + scrollY + (story.offsetHeight - stage.offsetHeight) * .98); });
-  await expect(page.locator('.brand-letter-fill').last()).toHaveCSS('opacity', '1');
+  await expect(page.locator(width<760 ? '.brand-bitmap-fill' : '.brand-letter-fill').last()).toHaveCSS('opacity', '1');
   await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 }); await cdp.detach();
 });

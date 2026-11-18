@@ -249,8 +249,7 @@ h3,.sound-steps h3{font-size:clamp(23px,2.1vw,28px);line-height:1.5}
 .community-cards h3{font-size:25px}
 .community-cards p+p{margin-top:18px}
 .notification-sample{display:flex;align-items:center;gap:14px;padding:22px 18px;background:#ffffff07;border:1px solid #ffffff15;border-radius:18px;margin-top:16px}
-.notification-sample img,.notification-avatar{flex-shrink:0;width:40px;height:40px;border-radius:10px}
-.notification-avatar{display:grid;place-items:center;color:#c5b5ff;font-size:24px;background:#b48aff15}
+.notification-sample img{flex-shrink:0;width:40px;height:40px;border-radius:10px;object-fit:contain}
 .notification-sample div{min-width:0}
 .notification-sample strong{font-size:15px;font-weight:600}
 .notification-sample p{font-size:15px;line-height:1.65;margin:5px 0 0;color:#b5b9c9;overflow-wrap:anywhere}
@@ -321,7 +320,7 @@ h3,.sound-steps h3{font-size:clamp(23px,2.1vw,28px);line-height:1.5}
 .achievement-copy .fine-print{margin:26px 0 0;color:#b5b9cd;line-height:1.9;text-wrap:pretty}
 
 /* Flowstate: an optional scroll scene; the base markup stays readable without JavaScript. */
-.flowstate-ambient,.flowstate-shade{display:none}
+.flowstate-shade{display:none}
 .flowstate-orbit{position:relative;transform-origin:50% 50%}
 @media(min-height:680px) and (prefers-reduced-motion:no-preference){
   .flowstate-feature.has-flow-motion{padding:0;position:relative}
@@ -335,16 +334,10 @@ h3,.sound-steps h3{font-size:clamp(23px,2.1vw,28px);line-height:1.5}
   .has-flow-motion .demo-dial-large{width:min(34vw,43svh,410px);margin:24px auto 36px;background:#000;border-radius:50%}
   .has-flow-motion .demo-dial-large .demo-dial-progress{stroke-dashoffset:var(--flow-ring-offset,0)}
   .has-flow-motion .flowstate-visual .fine-print{font-size:13px;margin:18px auto 0;max-width:320px}
-  .has-flow-motion .flowstate-ambient,.has-flow-motion .flowstate-shade{display:block;position:absolute;inset:0;pointer-events:none;z-index:0}
+  .has-flow-motion .flowstate-shade{display:block;position:absolute;inset:0;pointer-events:none;z-index:0}
   .has-flow-motion .flowstate-shade{background:#000;opacity:var(--flow-darkness,.3);z-index:1}
-  .has-flow-motion .flowstate-ambient{opacity:var(--flow-ambient-opacity,.65);transform:var(--flow-ambient-transform,none)}
-  .flowstate-ambient i{position:absolute;width:180px;height:120px;border:1px solid #ffffff20;border-radius:20px;background:linear-gradient(135deg,#65a9ff14,#ff73b50b)}
-  .flowstate-ambient i::after{content:'';position:absolute;inset:28px 24px;border-block:2px solid #ffffff19}
-  .flowstate-ambient i:nth-child(1){left:5%;top:8%;transform:rotate(-14deg)}
-  .flowstate-ambient i:nth-child(2){right:3%;top:12%;transform:rotate(17deg)}
-  .flowstate-ambient i:nth-child(3){left:35%;bottom:8%;transform:rotate(9deg)}
   .has-flow-motion .flowstate-points{padding:64px 30px 80px;background:#000}
-  .is-flow-active .flowstate-orbit,.is-flow-active .flowstate-copy,.is-flow-active .flowstate-ambient{will-change:transform,opacity}
+  .is-flow-active .flowstate-orbit,.is-flow-active .flowstate-copy{will-change:transform,opacity}
 }
 @media(max-width:760px) and (min-height:680px) and (prefers-reduced-motion:no-preference){
   .has-flow-motion .flowstate-track{height:235svh}
@@ -357,7 +350,6 @@ h3,.sound-steps h3{font-size:clamp(23px,2.1vw,28px);line-height:1.5}
   .has-flow-motion .demo-dial-large strong{font-size:clamp(54px,15vw,76px)}
   .has-flow-motion .demo-dial-large .demo-dial-caption{font-size:10px}
   .has-flow-motion .demo-dial-large .demo-dial-noise{font-size:12px}
-  .flowstate-ambient i{width:120px;height:85px}
   .has-flow-motion .flowstate-points{padding:48px 24px 64px}
 }
 
@@ -367,3 +359,18 @@ h3,.sound-steps h3{font-size:clamp(23px,2.1vw,28px);line-height:1.5}
 .brand-composition.is-camera-tracking{will-change:transform}
 @media(max-width:760px) and (prefers-reduced-motion:no-preference){.brand-story.has-scroll-motion{height:390svh}}
 @media(prefers-reduced-motion:reduce){.brand-composition{transform:none!important;will-change:auto}}
+
+/* Phone lettering is pre-rendered; its SVG is never repainted during the camera sweep. */
+.brand-bitmap-wordmark{display:none;position:absolute;left:28%;top:0;width:71%;aspect-ratio:1060/190;transform:translateY(-50%);pointer-events:none}
+.has-brand-bitmap .brand-wordmark{visibility:hidden}
+.has-brand-bitmap .brand-bitmap-wordmark{display:block}
+.brand-bitmap-letter,.brand-bitmap-window,.brand-bitmap-counter{position:absolute;top:0;height:100%;overflow:hidden}
+.brand-bitmap-letter{contain:paint}
+.brand-bitmap-window,.brand-bitmap-counter{left:0;width:100%}
+.brand-bitmap-window{opacity:0;transform:translate3d(-100%,0,0)}
+.brand-bitmap-counter{transform:translate3d(100%,0,0);overflow:visible}
+.brand-bitmap-letter img{position:absolute;top:0;left:0;width:100%;max-width:none;height:100%;pointer-events:none;user-select:none}
+.brand-bitmap-fill{opacity:0}
+.brand-bitmap-letter.is-drawing .brand-bitmap-window,.brand-bitmap-letter.is-drawing .brand-bitmap-counter{will-change:transform,opacity}
+.brand-bitmap-letter.is-drawing .brand-bitmap-fill{will-change:opacity}
+@media(prefers-reduced-motion:reduce){.has-brand-bitmap .brand-wordmark{visibility:visible}.has-brand-bitmap .brand-bitmap-wordmark{display:none}}

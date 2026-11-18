@@ -5,6 +5,7 @@ for (const width of [320, 390, 430, 1440]) test(`brand camera tracks the drawing
   await page.goto('/');
   await page.addStyleTag({ content: 'html{scroll-behavior:auto!important}' });
   await page.evaluate(() => document.fonts.ready);
+  if(width<=760) await expect(page.locator('.brand-bitmap-wordmark')).toHaveCount(1);
   async function seek(progress: number) {
     return page.evaluate(async value => {
       const story = document.querySelector<HTMLElement>('.brand-story')!;
@@ -33,7 +34,7 @@ for (const width of [320, 390, 430, 1440]) test(`brand camera tracks the drawing
     expect(closeupWidth / finalWidth).toBeCloseTo(3.6, 1);
   } else expect(early.scale).toBe(1);
   expect(final.scale).toBeCloseTo(1, 5); expect(final.x).toBe(0);
-  await expect(page.locator('.brand-letter-fill').last()).toHaveCSS('opacity', '1');
+  await expect(page.locator(width<=760 ? '.brand-bitmap-fill' : '.brand-letter-fill').last()).toHaveCSS('opacity', '1');
   for (const selector of ['.brand-symbol', '.brand-wordmark']) {
     const box = (await page.locator(selector).boundingBox())!;
     expect(box.x).toBeGreaterThanOrEqual(0); expect(box.x + box.width).toBeLessThanOrEqual(width);
